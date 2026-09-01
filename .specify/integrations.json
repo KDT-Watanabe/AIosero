@@ -1,0 +1,14 @@
+{
+  "integrations": {
+    "hermes": {
+      "type": "skills",
+      "folder": ".hermes/skills/",
+      "detect_dir": ".hermes/skills/",
+      "format": "markdown",
+      "args": "$ARGUMENTS",
+      "extension": "/SKILL.md"
+    }
+  },
+  "ai_skills": true,
+  "ai_provider": "openrouter:google/gemini-2.0-flash-exp"
+}

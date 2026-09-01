@@ -1,0 +1,116 @@
+# GitHub Speckit Configuration
+# https://github.com/pepke79/speckit
+
+name: AIosero Hermes Agent Skills
+description: Custom slash commands and skills for Hermes Agent integration
+version: 1.0.0
+
+# Commands are triggered by typing / followed by the command name
+commands:
+  - name: hermes-skill-list
+    description: "List all available Hermes Agent skills"
+    handler: list-hermes-skills
+    aliases: [skills, help]
+
+  - name: hermes-skill-view
+    description: "View a specific skill's details and usage"
+    handler: view-skill
+    arguments:
+      - name: skill_name
+        required: true
+        description: "Name of the skill to view"
+
+  - name: hermes-skill-create
+    description: "Create a new Hermes Agent skill"
+    handler: create-skill
+    arguments:
+      - name: skill_name
+        required: true
+        description: "Name for the new skill"
+      - name: category
+        required: false
+        default: "general"
+        description: "Category/subdirectory for the skill"
+
+  - name: hermes-skill-patch
+    description: "Patch/update an existing skill"
+    handler: patch-skill
+    arguments:
+      - name: skill_name
+        required: true
+        description: "Name of the skill to patch"
+      - name: old_string
+        required: true
+        description: "Text to find and replace"
+      - name: new_string
+        required: true
+        description: "Replacement text"
+
+  - name: hermes-skill-run
+    description: "Run a specific skill with arguments"
+    handler: run-skill
+    arguments:
+      - name: skill_name
+        required: true
+        description: "Name of the skill to run"
+      - name: args
+        required: false
+        description: "Arguments to pass to the skill (JSON format)"
+
+# Skills are reusable command templates stored in .speckit/skills/
+skills:
+  # Main Hermes Agent Skill Management
+  hermes-agent-skill-authoring:
+    file: skills/hermes-agent.md
+    description: "Author in-repo SKILL.md files: frontmatter and structure"
+
+  # GitHub Integration Skills
+  github-auth:
+    file: skills/github-auth.md
+    description: "GitHub auth setup: HTTPS tokens, SSH keys, gh CLI login"
+
+  github-code-review:
+    file: skills/github-code-review.md
+    description: "Review PRs: diffs, inline comments via gh or REST"
+
+  github-pr-workflow:
+    file: skills/github-pr-workflow.md
+    description: "GitHub PR lifecycle: branch, commit, open, CI, merge"
+
+  # Development Skills
+  writing-plans:
+    file: skills/writing-plans.md
+    description: "Write implementation plans: bite-sized tasks, paths, code"
+
+  test-driven-development:
+    file: skills/test-driven-development.md
+    description: "TDD: enforce RED-GREEN-REFACTOR, tests before code"
+
+# Event listeners for automatic triggers
+listeners:
+  - event: push
+    action: |
+      # Auto-run code review on PR creation
+      if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+        echo "🎀 New PR detected! Running auto-review..."
+        hermes-skill-run github-code-review --args='{"pr_number": "${{github.event.pull_request.number}}"}'
+      fi
+
+  - event: issue
+    action: |
+      # Auto-create issues as GitHub issues
+      if [ "$GITHUB_EVENT_NAME" = "issues" ]; then
+        echo "🎀 New issue created!"
+        hermes-skill-run github-issues --args='{"issue_number": "${{github.event.issue.number}}"}'
+
+# Custom hooks for lifecycle events
+hooks:
+  pre-commit: |
+    # Run pre-commit checks before git commit
+    echo "✨ Pre-commit hook running..."
+    hermes-skill-run requesting-code-review
+
+  post-merge: |
+    # Actions after a successful merge
+    echo "🎉 PR merged! Running post-merge tasks..."
+    hermes-skill-run github-pr-workflow --args='{"action": "post-merge", "pr_number": "${{github.event.pull_request.number}}"}'
