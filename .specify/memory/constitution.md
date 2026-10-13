@@ -1,50 +1,42 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# AIosero Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Deterministic Engine
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+The game engine (rules, pressure, meter, AI decisions) MUST be deterministic and separable from rendering. Same board + same inputs → same state. This makes the novel mechanics testable without a GUI.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Test-First for Game Rules
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Core rule logic (sandwich detection, pressure computation, meter advancement, flip, rescue, end detection, scoring) must have automated tests written before implementation. UI/rendering is exempt from test-first but must be verified against the engine.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Spec-Driven Development
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Implementation follows the feature spec strictly. Any deviation from spec'd rules (meter range, pressure formula, CD length, end conditions) requires a spec amendment first, not an ad-hoc code change.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Simplicity (YAGNI)
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+v1 scope is fixed by the spec: single human (black) vs deterministic AI (white), 8x8 board, Japanese UI, no online, no undo. New features require a new feature spec.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Observability
+
+Engine state (meters, lines, CDs, events like flip/rescue) must be inspectable — via a replay/log or test hooks — so displayed values can be verified against internal state (SC-004).
+
+## Technology Constraints
+
+- Language: C++ (user-specified).
+- Graphics/audio: DxLib (user-specified), Windows .exe deliverable.
+- UI language: Japanese.
+- Engine logic must not depend on DxLib (so tests can run without it).
+
+## Development Workflow
+
+- Follow the Speckit cycle: specify → clarify → plan → tasks → implement.
+- Every functional requirement (FR-xxx) in the active spec must map to at least one task and one test or verification step.
+- Commits reference the feature directory (`specs/001-new-othello`).
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc practices for this project. Amendments require documentation and approval by the project owner. Complexity in design must be justified against Principle IV.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-13 | **Last Amended**: 2026-10-13
