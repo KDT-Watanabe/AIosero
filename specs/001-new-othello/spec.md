@@ -72,6 +72,7 @@
 - When the meter reaches 0 or 100, the stone flips to that camp. Flipped stones are fixed forever (never re-contested).
 - Rescue: if all sandwiching lines on a contested stone are broken, the meter freezes (contest remains); pressure resumes when the stone is re-sandwiched.
 - Contested stones count as own-camp stones (their original camp) for forming new sandwich lines.
+- Support lines (tug-of-war): when a camp places a stone and, in some direction, the contiguous run from it is one or more of its own CONTESTED stones closed by its own non-contested stone, a support line of that camp is created over that run. It pushes those stones toward the camp's end with the same `p = ceil(N/k)` (N = run stones still contested, k = distance to the nearest other own stone), is active under the same far-end rule, and never creates new contests or makes a move legal by itself.
 
 ### End and Scoring
 
