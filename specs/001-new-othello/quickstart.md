@@ -11,16 +11,16 @@
 ```bash
 cmake -S . -B build -G "Visual Studio 18 2026"   # or Ninja
 cmake --build build --target engine_tests
-build/engine_tests
+build/Debug/engine_tests
 ```
 
 Expected: all assertions pass (sandwich, pressure, meter, flip, rescue, no-op, end, scoring, same-second order, AI determinism).
 
 ## Build & run the app
 
-1. Place DxLib headers/lib in `third_party/dxlib/`.
-2. `cmake --build build --target othello_app`
-3. Run `build/othello_app.exe` → title screen (Japanese rules) → スタート → play as black vs AI.
+1. Place DxLib headers/lib in `third_party/dxlib/DxLibNoneModel_NoneSoftDrawCode_VC/` (not tracked by Git).
+2. `cmake --build build --config Release --target sandwich_othello`
+3. Run `build/Release/sandwich_othello.exe` → title screen (Japanese rules) → スタート → play as black vs AI.
 
 ## Validation scenarios (maps to spec user stories)
 
