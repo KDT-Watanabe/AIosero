@@ -333,9 +333,54 @@ static void test_t025() {
     CHECK(fs.predictions[cell(2, 1)].camp == -1);                         // frozen: no prediction
 }
 
+// Quickstart 5: neither camp has a legal move (board not full) -> game ends; draw possible.
+static void test_end_no_moves_draw() {
+    Game g; g.test_reset_board(); g.start_game();
+    g.test_place(BLACK, cell(0, 0)); g.test_place(WHITE, cell(7, 7));   // isolated stones
+    CHECK(!has_legal_move(g.board, BLACK) && !has_legal_move(g.board, WHITE));
+    g.tick_second();
+    CHECK(g.phase == ENDED);
+    Snapshot s = g.snapshot();
+    CHECK(s.score[BLACK] == 1 && s.score[WHITE] == 1);
+    CHECK(s.result == RESULT_DRAW);
+}
+
+// Quickstart 6 / US4: restart mid-game -> fresh 4-stone start, both CDs ready, no events.
+static void test_restart_mid_game() {
+    Game g; g.start_game();
+    CHECK(g.place(BLACK, cell(3, 2)));
+    for (int t = 0; t < 3; t++) g.tick_second();
+    CHECK(g.board.at(cell(3, 3)).state == CONTESTED);
+    g.init(); g.start_game();
+    Game fresh; fresh.start_game();
+    Snapshot a = g.snapshot(), b = fresh.snapshot();
+    CHECK(a.tick == 0 && a.phase == PLAYING);
+    CHECK(a.cd_remaining[BLACK] == 0 && a.cd_remaining[WHITE] == 0);
+    CHECK(a.pending[BLACK] == -1 && a.pending[WHITE] == -1);
+    for (int p = 0; p < CELLS; p++)
+        CHECK(a.board[p].camp == b.board[p].camp && a.board[p].state == b.board[p].state);
+    CHECK(g.events_since(0).empty());
+    CHECK(g.board.lines.empty());
+}
+
+// Same-cell collision: black resolves first, white's queued move is cancelled and its CD refunded.
+static void test_same_cell_collision() {
+    Game g; g.test_reset_board(); g.start_game();
+    g.test_place(BLACK, cell(3, 0)); g.test_place(WHITE, cell(3, 1));
+    g.test_place(BLACK, cell(3, 3)); g.test_place(WHITE, cell(3, 4));
+    // (3,2): black sandwiches (3,1) with (3,0); white sandwiches (3,3) with (3,4).
+    CHECK(g.place(BLACK, cell(3, 2)));
+    CHECK(g.place(WHITE, cell(3, 2)));
+    g.tick_second();
+    CHECK(g.board.at(cell(3, 2)).camp == BLACK);
+    CHECK(g.snapshot().cd_remaining[WHITE] == 0);
+    CHECK(count_events(g, EV_PLACED) == 1);
+}
+
 int main() {
     test_t010(); test_t011(); test_tug_of_war(); test_t012(); test_t013(); test_t014();
     test_t015(); test_t016(); test_t017(); test_t022(); test_t025();
+    test_end_no_moves_draw(); test_restart_mid_game(); test_same_cell_collision();
     printf("engine tests: %d checks, %d failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;
 }
