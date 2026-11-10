@@ -2,6 +2,7 @@
 // snapshot()/events_since(); all game logic lives in the engine (constitution I/V).
 #include <DxLib.h>
 #include <windows.h>
+#include <algorithm>
 #include "../engine/game.h"
 #include "layout.h"
 #include "render.h"
@@ -100,8 +101,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                 bool flipped = false;
                 for (const Event &e : S.game.events_since(S.cursor)) {
                     S.cursor = e.id + 1;
-                    if (e.type == EV_FLIPPED) flipped = true;
-                    else if (e.type == EV_PASSED) S.ui.pass[e.camp] = true;
+                    if (e.type == EV_FLIPPED) {
+                        flipped = true;
+                        S.ui.effects.push_back({Effect::FLIP, e.cell, e.camp, now});
+                    } else if (e.type == EV_PLACED) {
+                        S.ui.effects.push_back({Effect::PLACE, e.cell, e.camp, now});
+                    } else if (e.type == EV_PASSED) S.ui.pass[e.camp] = true;
                 }
                 if (flipped) play_flip();
                 if (before > 0 && after.cd_remaining[BLACK] == 0) play_cd_unlock();
@@ -111,10 +116,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         }
 
         Snapshot s = S.game.snapshot();
-        S.ui.hover_cell = cell_at(L, m.x, m.y);
+        int mx, my; GetMousePoint(&mx, &my);
+        S.ui.hover_cell = cell_at(L, mx, my);
+        S.ui.hover_captures = S.ui.hover_cell >= 0 ? preview_captures(S.game.board, BLACK, S.ui.hover_cell)
+                                                   : std::vector<int>{};
+        S.ui.now_ms = now;
+        S.ui.tick_frac = s.phase == PLAYING ? (double)(now - S.last_tick) / 1000.0 : 0.0;
+        if (S.ui.tick_frac > 1.0) S.ui.tick_frac = 1.0;
+        S.ui.effects.erase(std::remove_if(S.ui.effects.begin(), S.ui.effects.end(),
+                               [now](const Effect &e) { return now - e.start_ms > 1000; }),
+                           S.ui.effects.end());
         if (s.phase == TITLE) render_title(L);
         else if (s.phase == PLAYING) render_game(s, L, S.ui);
-        else render_end(s, L);
+        else render_end(s, L, S.ui);
         ScreenFlip();
     }
     DxLib_End();

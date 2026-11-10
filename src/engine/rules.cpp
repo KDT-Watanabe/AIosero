@@ -47,7 +47,8 @@ bool has_legal_move(const Board &b, int camp) {
 }
 
 // Recompute N,k for every line every second (T011). Pure computation.
-void compute_net_pressure(const Board &b, int net[CELLS], bool has_active[CELLS]) {
+void compute_net_pressure(const Board &b, int net[CELLS], bool has_active[CELLS],
+                          std::vector<LineView> *views) {
     for (int i = 0; i < CELLS; i++) { net[i] = 0; has_active[i] = false; }
     for (const SandwichLine &L : b.lines) {
         // Active only while the far end still counts as the line's camp.
@@ -58,15 +59,33 @@ void compute_net_pressure(const Board &b, int net[CELLS], bool has_active[CELLS]
             else if (b.counts_as(pos) != L.camp) N++;
         }
         if (N == 0) continue;
+        int strongest = 0;
         for (int pos : L.chain) {
             if (b.at(pos).state != CONTESTED) continue;         // fixed stones: no pressure
             int k = b.nearest_own_distance(pos, L.camp);
             if (k <= 0 || k >= 99) continue;
-            int p = (N + k - 1) / k;                            // ceil(N/k)
+            int p = (N + k - 1) / k * PRESSURE_SCALE;           // ceil(N/k), scaled
             net[pos] += (L.camp == BLACK) ? p : -p;
             has_active[pos] = true;
+            if (p > strongest) strongest = p;
+        }
+        if (views && strongest > 0) {
+            LineView v; v.camp = L.camp; v.anchor = L.anchor; v.far_end = L.far_end;
+            v.pressure = strongest; v.defend = L.defend;
+            views->push_back(v);
         }
     }
+}
+
+std::vector<int> preview_captures(const Board &b, int camp, int cell) {
+    std::vector<int> out;
+    if (b.at(cell).pos >= 0) return out;
+    std::vector<int> chain; int far_end;
+    for (auto &d : DIRS) {
+        if (!walk_line(b, camp, cell, d[0], d[1], chain, far_end)) continue;
+        for (int pos : chain) if (b.at(pos).state == NORMAL) out.push_back(pos);
+    }
+    return out;
 }
 
 // Apply pressure, then resolve flips after all pressure is applied (flip effects on

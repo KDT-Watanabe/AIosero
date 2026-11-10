@@ -33,6 +33,7 @@
 - Q: 开局(初期配置)? → A: 既存オセロの4石スタート(白黒2石ずつ、対称)。
 - Q: CD(クールダウン)は独立か交互手番か? → A: 両陣営独立CD(同時に置ける、リアルタイム綱引き)。
 - Q: CDの長さ? → A: 固定秒数(5秒)— 全ゲーム同じ。
+- 改訂 2026-11-10: CDを8秒に延長、反転を速くするため圧力を3倍(PRESSURE_SCALE=3)に変更。
 - Q: CDが解けた陣営に置ける手がない時は? → A: 手番制のオセロと同じくスキップ(パス)。
 - Q: 固定石(反転済み)だけの挟みは合法手か? → A: 合法だが圧力なし(no-op手)。CDごとに許す。
 - Q: 両陣営が同じマスに同時に置こうとしたら? → A: 衝突は起こらない(処理順で確定、テスト可能)。
@@ -57,7 +58,7 @@
 ### Placement
 
 - Standard Othello placement: a stone may be placed only on an empty square that creates at least one sandwich line (opponent stones between the placed stone and an existing own stone in one of the 8 directions).
-- Each camp has its own independent cooldown (CD = 5 seconds fixed). When a camp's CD expires, that camp may place one stone on a legal square. A camp with no legal square passes when its CD expires.
+- Each camp has its own independent cooldown (CD = 8 seconds fixed). When a camp's CD expires, that camp may place one stone on a legal square. A camp with no legal square passes when its CD expires.
 - Human = black, places by click whenever CD is ready (CD starts at placement). AI = white, deterministic (same board → same move, 2-move lookahead), places with a 0.5–2 s presentation delay.
 - Processing order when both camps' CDs expire in the same second: black first, then white. No placement collisions.
 - Sandwich lines made only of fixed (already-flipped) stones are legal no-op moves (no pressure produced).
@@ -66,13 +67,13 @@
 
 - A stone sandwiched at placement time enters a contested state with a tension meter T in [0, 100] (white camp = 0, black camp = 100), starting at 50 (neutral).
 - Contested state is entered only at placement time; flips never create new contested stones.
-- Pressure per active sandwiching line: `p = ceil(N / k)`, where N = chain length (more sandwiched stones → stronger push = acceleration) and k = distance from the nearest own stone at that moment (farther → weaker push). N and k are recomputed every second.
+- Pressure per active sandwiching line: `p = ceil(N / k) × 3`, where N = chain length (more sandwiched stones → stronger push = acceleration) and k = distance from the nearest own stone at that moment (farther → weaker push). N and k are recomputed every second.
 - Every second, each contested stone's meter moves by (sum of black-line pressures − sum of white-line pressures). Lines of the same camp are summed. The meter advances every second whenever active lines exist, even if nobody places.
 - A line is active while its far end holds a stone of the line's camp; if the far-end stone flips to the other camp, the line breaks (same as rescue).
 - When the meter reaches 0 or 100, the stone flips to that camp. Flipped stones are fixed forever (never re-contested).
 - Rescue: if all sandwiching lines on a contested stone are broken, the meter freezes (contest remains); pressure resumes when the stone is re-sandwiched.
 - Contested stones count as own-camp stones (their original camp) for forming new sandwich lines.
-- Support lines (tug-of-war): when a camp places a stone and, in some direction, the contiguous run from it is one or more of its own CONTESTED stones closed by its own non-contested stone, a support line of that camp is created over that run. It pushes those stones toward the camp's end with the same `p = ceil(N/k)` (N = run stones still contested, k = distance to the nearest other own stone), is active under the same far-end rule, and never creates new contests or makes a move legal by itself.
+- Support lines (tug-of-war): when a camp places a stone and, in some direction, the contiguous run from it is one or more of its own CONTESTED stones closed by its own non-contested stone, a support line of that camp is created over that run. It pushes those stones toward the camp's end with the same `p = ceil(N/k) × 3` (N = run stones still contested, k = distance to the nearest other own stone), is active under the same far-end rule, and never creates new contests or makes a move legal by itself.
 
 ### End and Scoring
 
@@ -171,7 +172,7 @@ The player can restart the game at any time from a fresh standard start.
 ### Functional Requirements
 
 - **FR-001**: System MUST implement placement per standard Othello (sandwich-line legal squares only) on a standard 8x8 board with the standard 4-stone start.
-- **FR-002**: System MUST run in real time with independent per-camp cooldowns of 5 seconds; a camp may place one stone per expired CD; a camp with no legal square passes.
+- **FR-002**: System MUST run in real time with independent per-camp cooldowns of 8 seconds; a camp may place one stone per expired CD; a camp with no legal square passes.
 - **FR-003**: System MUST assign contested state (meter 0–100, start 50) only to stones sandwiched at placement time.
 - **FR-004**: System MUST advance each contested stone's meter every second by the net sum of active line pressures (same-camp lines summed; camps opposed as difference), recomputing N and k each second.
 - **FR-005**: System MUST flip a contested stone to the camp whose end (0 or 100) its meter reaches; flipped stones are permanently fixed.
@@ -191,7 +192,7 @@ The player can restart the game at any time from a fresh standard start.
 - **Stone**: position, camp (black/white), state (normal / contested / fixed), original camp; contested stones carry a meter value.
 - **Tension Meter**: value 0–100 per contested stone; 0 = white end, 100 = black end, start 50.
 - **Sandwich Line**: camp, chain length N, distance k (recomputed each second), active while the far end holds a stone of the line's camp.
-- **Cooldown**: per-camp timer, 5 seconds fixed.
+- **Cooldown**: per-camp timer, 8 seconds fixed.
 - **Game**: board state, per-camp CD, end condition, score (counts + meter breakdown), result (win/draw).
 
 ## Success Criteria *(mandatory)*
@@ -209,6 +210,6 @@ The player can restart the game at any time from a fresh standard start.
 - The project is greenfield (no existing game code in the repo).
 - Human vs AI only in v1; no local human-vs-human, no online multiplayer.
 - The AI's 0.5–2 s delay is presentation only; decision logic is deterministic.
-- Meter values are integers; pressure p = ceil(N/k) is at least 1 per active line.
+- Meter values are integers; pressure p = ceil(N/k) × 3 is at least 3 per active line.
 - No time limit per game; games end by the natural end condition.
 - DxLib is available on the development machine (Windows).

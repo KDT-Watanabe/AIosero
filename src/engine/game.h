@@ -137,7 +137,7 @@ public:
         board.compute_score(s.score);
 
         int net[CELLS]; bool active[CELLS];
-        compute_net_pressure(board, net, active);
+        compute_net_pressure(board, net, active, &s.lines);
         for (int p = 0; p < CELLS; p++) {
             if (board.at(p).state != CONTESTED) continue;
             if (!active[p] || net[p] == 0) continue;            // frozen: no prediction

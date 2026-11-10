@@ -5,7 +5,8 @@ namespace othello {
 
 constexpr int BOARD_SIZE = 8;
 constexpr int CELLS = BOARD_SIZE * BOARD_SIZE;
-constexpr int CD_SECONDS = 5;
+constexpr int CD_SECONDS = 8;        // placement cooldown per camp (seconds)
+constexpr int PRESSURE_SCALE = 3;    // meter points per unit of ceil(N/k) per second
 
 enum Camp { BLACK = 0, WHITE = 1 };
 enum StoneState { NORMAL = 0, CONTESTED = 1, FIXED = 2 };
@@ -45,6 +46,15 @@ struct Event {
     int camp = -1;
 };
 
+// An active line currently pushing at least one contested stone (UI draws it).
+struct LineView {
+    int camp = -1;
+    int anchor = -1;
+    int far_end = -1;
+    int pressure = 0;      // strongest per-stone push along this line (meter points / s)
+    bool defend = false;   // support line (own contested stones pushed back)
+};
+
 // Engine public surface per contracts/engine-contract.md.
 struct Snapshot {
     int tick = 0;
@@ -59,6 +69,7 @@ struct Snapshot {
     int score[2] = {0, 0};                   // meter-direction resolution incl. 50-rule
     int phase = TITLE;
     int result = RESULT_ONGOING;             // -1 ongoing, 0 draw, 1 black, 2 white
+    std::vector<LineView> lines;             // active pushing lines
 };
 
 // Camp a stone resolves to for scoring: contested by meter direction, exactly 50 -> origin.

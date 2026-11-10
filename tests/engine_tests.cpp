@@ -14,6 +14,7 @@ static int g_checks = 0, g_fails = 0;
     printf("FAIL [%s] line %d: %s\n", __func__, __LINE__, #cond); } } while (0)
 
 static int cell(int row, int col) { return row * BOARD_SIZE + col; }
+static const int S = PRESSURE_SCALE;   // meter points per unit of ceil(N/k)
 
 static bool has_event(const Game &g, int type, int cell_v) {
     for (const Event &e : g.events_since(0)) if (e.type == type && e.cell == cell_v) return true;
@@ -69,18 +70,18 @@ static void test_t011() {
     CHECK(g.board.at(cell(3, 1)).meter == 50 && g.board.at(cell(3, 2)).meter == 50);
 
     g.tick_second();   // (3,1),(3,3): k=1 -> p=3 ; (3,2): k=2 -> p=ceil(3/2)=2
-    CHECK(g.board.at(cell(3, 1)).meter == 53);
-    CHECK(g.board.at(cell(3, 2)).meter == 52);
-    CHECK(g.board.at(cell(3, 3)).meter == 53);
+    CHECK(g.board.at(cell(3, 1)).meter == 50 + 3 * S);
+    CHECK(g.board.at(cell(3, 2)).meter == 50 + 2 * S);
+    CHECK(g.board.at(cell(3, 3)).meter == 50 + 3 * S);
 
     g.test_place(BLACK, cell(2, 2));   // no line, but becomes nearest own stone for (3,2)
     g.tick_second();                   // (3,2): N=3,k=1 -> p=3 (recomputed)
-    CHECK(g.board.at(cell(3, 2)).meter == 55);
-    CHECK(g.board.at(cell(3, 1)).meter == 56);
+    CHECK(g.board.at(cell(3, 2)).meter == 50 + 5 * S);
+    CHECK(g.board.at(cell(3, 1)).meter == 50 + 6 * S);
 
     g.test_place(BLACK, cell(2, 1)); g.test_place(BLACK, cell(4, 1));   // L2 through (3,1): p=1
     g.tick_second();                   // net on (3,1) = 3 + 1 = 4 (same-camp lines summed)
-    CHECK(g.board.at(cell(3, 1)).meter == 60);
+    CHECK(g.board.at(cell(3, 1)).meter == 50 + 10 * S);
 }
 
 // US1 acceptance 3: a contested stone pressed by both camps moves by the net difference.
@@ -97,12 +98,12 @@ static void test_tug_of_war() {
     CHECK(g.snapshot().predictions[cell(3, 1)].camp == -1);
     g.test_place(WHITE, cell(4, 2));                      // white support (diagonal): -1/s
     g.tick_second();
-    CHECK(g.board.at(cell(3, 1)).meter == 49);            // +1 - 2 = -1 -> toward white
+    CHECK(g.board.at(cell(3, 1)).meter == 50 - S);        // +1 - 2 = -1 -> toward white
     g.tick_second();
-    CHECK(g.board.at(cell(3, 1)).meter == 48);
+    CHECK(g.board.at(cell(3, 1)).meter == 50 - 2 * S);
     Snapshot s = g.snapshot();
     CHECK(s.predictions[cell(3, 1)].camp == WHITE);
-    CHECK(std::abs(s.predictions[cell(3, 1)].seconds - 48.0) < 1e-9);
+    CHECK(std::abs(s.predictions[cell(3, 1)].seconds - (50.0 - 2 * S) / S) < 1e-9);
     CHECK(g.board.at(cell(3, 1)).state == CONTESTED);     // support never creates new contests
     CHECK(g.board.at(cell(2, 1)).state == NORMAL && g.board.at(cell(4, 1)).state == NORMAL);
 }
@@ -113,12 +114,12 @@ static void test_t012() {
     Game g; g.test_reset_board(); g.start_game();
     g.test_place(BLACK, cell(3, 2)); g.test_place(WHITE, cell(3, 3));
     g.test_place(BLACK, cell(3, 4));                       // contests (3,3), p = ceil(1/1) = 1
-    for (int i = 1; i <= 49; i++) {
+    for (int i = 1; 50 + i * S < 100; i++) {
         g.tick_second();
-        CHECK(g.board.at(cell(3, 3)).meter == 50 + i);
+        CHECK(g.board.at(cell(3, 3)).meter == 50 + i * S);
         CHECK(g.board.at(cell(3, 3)).state == CONTESTED);
     }
-    g.tick_second();                                       // exactly 100 -> flip
+    g.tick_second();                                       // reaches 100 (clamped) -> flip
     CHECK(g.board.at(cell(3, 3)).state == FIXED);
     CHECK(g.board.at(cell(3, 3)).camp == BLACK);           // line camp = black end
     CHECK(has_event(g, EV_FLIPPED, cell(3, 3)));
@@ -137,23 +138,23 @@ static void test_t013() {
     for (int c = 1; c <= 3; c++) g.test_place(WHITE, cell(2, c));
     g.test_place(BLACK, cell(2, 4));                      // L1 chain {(2,3),(2,2),(2,1)}, N=3
     g.tick_second();
-    CHECK(g.board.at(cell(2, 2)).meter == 52);            // N=3,k=2 -> p=2
-    CHECK(g.board.at(cell(2, 1)).meter == 53);            // N=3,k=1 -> p=3
+    CHECK(g.board.at(cell(2, 2)).meter == 50 + 2 * S);    // N=3,k=2 -> p=2
+    CHECK(g.board.at(cell(2, 1)).meter == 50 + 3 * S);    // N=3,k=1 -> p=3
 
     g.test_set_state(cell(2, 0), FIXED); g.test_set_camp(cell(2, 0), WHITE);  // far end flips: L1 broken
     g.tick_second();
     CHECK(has_event(g, EV_RESCUED, cell(2, 2)));          // frozen transition
     CHECK(g.board.at(cell(2, 2)).state == CONTESTED);     // contest retained
     g.tick_second();
-    CHECK(g.board.at(cell(2, 2)).meter == 52);            // frozen: no pressure
+    CHECK(g.board.at(cell(2, 2)).meter == 50 + 2 * S);    // frozen: no pressure
 
     g.test_place(WHITE, cell(3, 3)); g.test_place(BLACK, cell(1, 1));
     g.test_place(BLACK, cell(4, 4));                      // new line through (2,2): N=2,k=1 -> p=2
     g.tick_second();
-    CHECK(g.board.at(cell(2, 2)).meter == 54);            // pressure resumed
+    CHECK(g.board.at(cell(2, 2)).meter == 50 + 4 * S);    // pressure resumed
 }
 
-// T014: independent 5s cooldowns, pass when expired with no legal move, same-second order black first.
+// T014: independent CD_SECONDS cooldowns, pass when expired with no legal move, same-second order black first.
 static void test_t014() {
     // Pass scenario: white has no legal move anywhere.
     Game g; g.test_reset_board(); g.start_game();
@@ -170,10 +171,9 @@ static void test_t014() {
     CHECK(h.snapshot().cd_remaining[BLACK] == CD_SECONDS);
     CHECK(h.snapshot().cd_remaining[WHITE] == 0);         // white's own CD untouched
     CHECK(!h.place(BLACK, cell(2, 3)));                   // CD not ready -> rejected
-    const int exp_black[6] = {5, 4, 3, 2, 1, 0};
-    for (int t = 1; t <= 6; t++) {
+    for (int t = 1; t <= CD_SECONDS + 1; t++) {
         h.tick_second();
-        CHECK(h.snapshot().cd_remaining[BLACK] == exp_black[t - 1]);
+        CHECK(h.snapshot().cd_remaining[BLACK] == CD_SECONDS - (t - 1));   // placed second, then counts down
         CHECK(h.snapshot().cd_remaining[WHITE] == 0);     // white never placed; stays ready
     }
 
@@ -323,7 +323,7 @@ static void test_t025() {
     g.test_set_meter(cell(3, 4), 62);
     Snapshot s = g.snapshot();
     CHECK(s.predictions[cell(3, 4)].camp == BLACK);                        // dominant end = black
-    CHECK(std::abs(s.predictions[cell(3, 4)].seconds - 9.5) < 1e-9);      // (100-62)/ceil(4/1)
+    CHECK(std::abs(s.predictions[cell(3, 4)].seconds - 38.0 / (4 * S)) < 1e-9);   // (100-62)/(ceil(4/1)*S)
 
     Game k; k.test_reset_board(); k.start_game();
     k.test_place(BLACK, cell(2, 0)); k.test_place(WHITE, cell(2, 1)); k.test_place(BLACK, cell(2, 2));
@@ -377,10 +377,25 @@ static void test_same_cell_collision() {
     CHECK(count_events(g, EV_PLACED) == 1);
 }
 
+// UI support: capture preview and active-line views come from the engine (constitution V).
+static void test_preview_and_lines() {
+    Game g; g.start_game();
+    auto pv = preview_captures(g.board, BLACK, cell(3, 2));
+    CHECK(pv.size() == 1 && pv[0] == cell(3, 3));
+    CHECK(preview_captures(g.board, BLACK, cell(0, 0)).empty());
+    CHECK(g.place(BLACK, cell(3, 2)));
+    g.tick_second();
+    Snapshot s = g.snapshot();
+    CHECK(s.lines.size() == 1);
+    CHECK(s.lines[0].camp == BLACK && s.lines[0].anchor == cell(3, 2) && s.lines[0].far_end == cell(3, 4));
+    CHECK(s.lines[0].pressure == S && !s.lines[0].defend);
+}
+
 int main() {
     test_t010(); test_t011(); test_tug_of_war(); test_t012(); test_t013(); test_t014();
     test_t015(); test_t016(); test_t017(); test_t022(); test_t025();
     test_end_no_moves_draw(); test_restart_mid_game(); test_same_cell_collision();
+    test_preview_and_lines();
     printf("engine tests: %d checks, %d failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;
 }

@@ -10,10 +10,14 @@ std::vector<int> legal_moves(const Board &b, int camp);
 // Recompute N,k for every line every second (T011):
 //   N = chain stones currently counting as the line's opponent,
 //   k = Chebyshev distance from a contested stone to its nearest own-camp stone,
-//   p = ceil(N/k) toward the line's camp end.
+//   p = ceil(N/k) * PRESSURE_SCALE toward the line's camp end.
 // Outputs net pressure per contested stone (net>0 = toward black end / meter 100)
 // and has_active per stone (false = frozen, no prediction). Pure computation.
-void compute_net_pressure(const Board &b, int net[CELLS], bool has_active[CELLS]);
+void compute_net_pressure(const Board &b, int net[CELLS], bool has_active[CELLS],
+                          std::vector<LineView> *views = nullptr);
+
+// Stones that placing `camp` at `cell` would newly contest (hover preview). Pure.
+std::vector<int> preview_captures(const Board &b, int camp, int cell);
 
 bool has_legal_move(const Board &b, int camp);
 
